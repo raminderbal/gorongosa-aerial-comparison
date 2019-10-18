@@ -1,0 +1,633 @@
+---
+title: "Aerial count and camera trap comparison"
+author: "Kaitlyn Gaynor"
+date: "9/5/19"
+output: 
+  html_document:
+    theme: cosmo
+editor_options:
+  chunk_output_type: console
+---
+
+## The general approach
+
+I was interested in comparing aerial count detections to camera trap detections during the same period (late dry season of 2016). I was curious to see which species were more commonly detected in one vs. the other, and how the ratio of aerial to camera trap detections varied across habitats and species.
+
+I cropped the 2016 aerial count data to the camera trap grid. For each species in the aerial count, I tallied up the number of individual animals counted in each of the 60 hexagonal grid cells. (I also counted the number of groups, but am not showing those analyses below, because Marc Stalmans informed me that multiple groups were often lumped together during the count for the sake of efficiency, particularly for common species. Also, the individual vs group aerial counts are highly correlated, so the patterns were similiar regardless of which was used as an aerial count measure.)
+
+```{r setup, include = F}
+# load libraries
+library(here)
+library(camtrapR)
+library(rgdal)
+library(plyr)
+library(dplyr)
+library(broom)
+library(ggplot2)
+library(raster)
+library(glmulti)
+library(RColorBrewer)
+library(car)
+library(tidyverse)
+library(knitr)
+
+# import 2016 aerial count data and change projection to UTM
+# I first had to figure out and define projection in arcmap, wasn't sure how to do here (hence _proj file)
+aerial <- readOGR(here::here('data', 'aerial-count'), 'clip2016_gaynor_grid_proj') %>% 
+  spTransform("+proj=utm +south +zone=36 +ellps=WGS84")
+  
+# read in camera polygons
+hexes <- readOGR(here::here('data', 'camera-trap'), 'CameraGridHexes') %>% 
+  spTransform("+proj=utm +south +zone=36 +ellps=WGS84")
+
+plot(hexes)
+points(aerial, pch = 16, cex = 0.5)
+
+# make labels (code borrowed from Matt LOD)
+cam_labs <- as.data.frame(do.call(rbind, lapply(hexes@polygons, function(x) rbind(x@Polygons[[1]]@labpt))))
+cam_labs$lab <- hexes@data$StudySite
+
+# mask count data to hexagons
+aerial.mask <- aerial[hexes,]
+```
+
+Here is a map showing the aerial count records within the grid:
+```{r aerial count plot, echo = F}
+# plot again
+plot(hexes)
+points(aerial.mask, pch = 16, cex = 0.5, col = "orange")
+text(cam_labs[,1], cam_labs[,2], labels=as.character(cam_labs[,3]), col = "blue")
+```
+
+
+```{r aerial count manipulation, echo = F}
+# export as data frame
+aerial.mask.df <- as.data.frame(aerial.mask)
+write.csv(aerial.mask.df, here::here("data", "aerial-count", "aerial-counts-masked.csv"))
+
+# extract third column (ID code with hex row and column), merge with camera metadata
+aerial.mask <- cbind(aerial.mask, over(aerial.mask, hexes)[,6])
+names(aerial.mask) <- c(names(aerial.mask[,1:12]), "StudySite")
+
+# calculate total number of each species in each camera hex
+aerial.by.hex <- as.data.frame(aerial.mask) %>% 
+  group_by(StudySite, SPECIES) %>% 
+  dplyr::summarise(aerial.individuals = sum(NUMBER), aerial.groups = n()) %>% 
+  as.data.frame()
+
+# calculate total number of each species in entire study area
+aerial.total <- as.data.frame(aerial.mask) %>% 
+  group_by(SPECIES) %>% 
+  dplyr::summarise(aerial.individuals = sum(NUMBER), aerial.groups = n()) %>% 
+  as.data.frame()
+
+aerial.by.hex$CommName <- aerial.by.hex$SPECIES %>% as.character()
+aerial.total$CommName <- aerial.total$SPECIES %>% as.character()
+
+# get common names to match camera traps
+for(i in 1:nrow(aerial.by.hex)) {
+  if(aerial.by.hex$SPECIES[i] == "Baboon troop") {
+    aerial.by.hex$CommName[i] <- "Baboon"
+  }
+  if(aerial.by.hex$SPECIES[i] == "Blue wildebeest") {
+    aerial.by.hex$CommName[i] <- "Wildebeest"
+  }
+  if(aerial.by.hex$SPECIES[i] == "Blue Wildebeest") {
+    aerial.by.hex$CommName[i] <- "Wildebeest"
+  }
+  if(aerial.by.hex$SPECIES[i] == "Common reedbuck") {
+    aerial.by.hex$CommName[i] <- "Reedbuck"
+  }
+  if(aerial.by.hex$SPECIES[i] == "Duiker grey") {
+    aerial.by.hex$CommName[i] <- "Duiker_common"
+  }
+  if(aerial.by.hex$SPECIES[i] == "Duiker red") {
+    aerial.by.hex$CommName[i] <- "Duiker_red"
+  }  
+  if(aerial.by.hex$SPECIES[i] == "Sable") {
+    aerial.by.hex$CommName[i] <- "Sable_antelope"
+  }  
+}
+for(i in 1:nrow(aerial.total)) {
+  if(aerial.total$SPECIES[i] == "Baboon troop") {
+    aerial.total$CommName[i] <- "Baboon"
+  }
+  if(aerial.total$SPECIES[i] == "Blue wildebeest") {
+    aerial.total$CommName[i] <- "Wildebeest"
+  }
+  if(aerial.total$SPECIES[i] == "Blue Wildebeest") {
+    aerial.total$CommName[i] <- "Wildebeest"
+  }
+  if(aerial.total$SPECIES[i] == "Common reedbuck") {
+    aerial.total$CommName[i] <- "Reedbuck"
+  }
+  if(aerial.total$SPECIES[i] == "Duiker grey") {
+    aerial.total$CommName[i] <- "Duiker_common"
+  }
+  if(aerial.total$SPECIES[i] == "Duiker red") {
+    aerial.total$CommName[i] <- "Duiker_red"
+  }  
+  if(aerial.total$SPECIES[i] == "Sable") {
+    aerial.total$CommName[i] <- "Sable_antelope"
+  }  
+}
+
+# remove species with NA for SppCode (birds, crocodiles)
+aerial.by.hex <- aerial.by.hex[complete.cases(aerial.by.hex),]
+aerial.total <- aerial.total[complete.cases(aerial.total),]
+```
+
+I then calculated the Relative Activity Index, a simple measure of camera trap detections per night. Here, I considered records to be independent if they were >10 minutes from a record of the same species at that location. I did not record the number of individuals in each group, so in this case, we are looking at groups—an imperfect comparison with individuals from the aerial count, but the best that we can do so far. Meredith is currently working on determining the number of individuals in each record.
+
+The aerial survey took place from October 18-31, 2016. I calculated RAI for three different time periods: 
+
+* the exact period of the survey (2 weeks total)
+* two weeks before and after the count (6 weeks total)
+* four weeks before and after the count (10 weeks total). 
+The longer the camera trap survey period, the more data, but I didn't want it to be so long that it was no longer representative of animal distributions during the count.
+
+For each of these three time periods, I calculated RAI for each species:
+
+* within each grid cell
+* within the entire study area
+
+```{r rai calculation, echo = F, warning = F, message = F}
+# calculate RAI for the count period
+# count was October 18-31, 2016
+# tried three ways: the exact count (two weeks), a six-week period (2 weeks before and after), and a ten-week period (4 weeks before and after)
+
+# bring in record table (already cleaned for operation dates)
+record.table <- read.csv(here::here("data", "camera-trap", "recordtable_year1and2_15min.csv"))
+record.table$Date <- as.Date(record.table$Date)
+
+# bring in camera operation dates - generated with Occupancy_matrix_wrangling_revised031519.Rmd code
+# do this as a list
+Camop <- list()
+Camop[[1]] <- read.csv(here::here("data", "camera-trap", "Camoperation_10_18_16_10_31_16.csv"))
+Camop[[2]] <- read.csv(here::here("data", "camera-trap", "Camoperation_10_4_16_11_14_16.csv"))
+Camop[[3]] <- read.csv(here::here("data", "camera-trap", "Camoperation_9_20_16_11_28_16.csv"))
+
+# set start and end dates of interest
+start.date <- list()
+end.date <- list()
+start.date[[1]] <- as.Date("10/18/16", format = "%m/%d/%y")
+end.date[[1]] <- as.Date("10/31/16", format = "%m/%d/%y")
+start.date[[2]] <- as.Date("10/4/16", format = "%m/%d/%y")
+end.date[[2]] <- as.Date("11/14/16", format = "%m/%d/%y")
+start.date[[3]] <- as.Date("9/20/16", format = "%m/%d/%y")
+end.date[[3]] <- as.Date("11/28/16", format = "%m/%d/%y")
+
+# create list to store RAI outputs
+rai.outputs.hex <- list()
+rai.outputs.total <- list()
+
+# calculate RAI for each period
+for (i in 1:length(Camop)) {
+  record.table.subset <- record.table[record.table$Date >= start.date[[i]] & record.table$Date <= end.date[[i]],]
+
+  # just take the columns we need (camera and species)
+  record.table.subset <- record.table.subset[,2:3]
+
+  # change column names to match other datasets
+  colnames(record.table.subset) = c("StudySite", "CommName")
+
+  # remove species that we don't care about
+  for (j in c("Aardvark", "Bat", "Bird_other", "Bushbaby", "Civet", "Duiker_unknown", "Fire", "Genet", "Ghost", "Ghosts Part 1", 
+            "Ghosts Part 2", "Ground_hornbill", "Guineafowl_crested", 
+            "Guineafowl_helmeted", "Hare", "Honey_badger", "Hornbill_ground", "Hornbill_ground 2", 
+            "Human", "Insect", "Mongoose_banded", "Mongoose_bushy_tailed", "Mongoose_large_grey", "Mongoose_marsh",
+            "Mongoose_slender", "Mongoose_white_tailed", "Mongoose_other", "Mongoose_unknown", 
+            "Monitor_lizard", "Pangolin", "Porcupine", "Rain", "Reptile", "Rodent", "Samango", "Serval", "Setup",
+            "Snake", "Unknown", "Unknown_antelope", "Vervet")) {
+    record.table.subset <- record.table.subset[record.table.subset$CommName != j, ]
+  }
+
+  ## CALCULATE RAI AT EACH CAMERA
+  
+  # calculates number of observations of each species at each camera
+  records <- record.table.subset %>%
+    dplyr::group_by(CommName, StudySite) %>%
+    dplyr::summarise(Detections = n()) %>%     # counts number of observations of each species
+    spread(key = CommName, value = Detections)  # gets from long to wide format
+  
+  # replace NA values with 0 (no detections)
+  records[is.na(records)] <- 0
+  
+  # join camera operation dates and species observations
+  RAI.table <- join(Camop[[i]], records)
+  
+  # gather data so each species-camera is its own row again
+  RAI.table <- RAI.table %>% gather(3:ncol(RAI.table), key = "CommName", value = "Count")
+  
+  # replace NA with 0 (not sure why they got un-replaced...)
+  RAI.table[is.na(RAI.table)] <- 0
+  
+  # calculate RAI
+  RAI.table$RAI <- RAI.table$Count / RAI.table$Operation
+  
+  # set RAI to NA if Operation is 0
+  for (j in 1:nrow(RAI.table)) {
+    if(RAI.table$Operation[[j]] == 0) {
+      RAI.table$RAI[[j]] <- NA
+    }
+  }
+  
+  # store RAI table in list
+  rai.outputs.hex[[i]] <- RAI.table
+  
+  # write CSV
+  write.csv(RAI.table, file = here::here('data', 'camera-trap', paste("RAI_", start.date[[i]], "_", end.date[[i]], ".csv", collapse = "", sep = "")), row.names=F)
+
+  
+  ## CALCULATE RAI FOR ENTIRE STUDY AREA
+  
+  # calculates number of observations of each species for entire study area
+  RAI.table.all <- record.table.subset %>%
+  dplyr::group_by(CommName) %>%
+  dplyr::summarise(Count = n())
+  
+  camop.all <- sum(Camop[[i]]$Operation)
+  
+  RAI.table.all$Operation <- camop.all
+  
+  # calculate RAI
+  RAI.table.all$RAI <- RAI.table.all$Count / RAI.table.all$Operation
+  
+  # set RAI to NA if Operation is 0
+  for (j in 1:nrow(RAI.table.all)) {
+    if(RAI.table.all$Operation[[j]] == 0) {
+      RAI.table.all$RAI[[j]] <- NA
+    }
+  }
+  
+  rai.outputs.total[[i]] <- RAI.table.all
+}
+
+# change the names of the RAI tables
+names(rai.outputs.hex[[1]]) <- c("StudySite", "Operation.2week", "CommName", "Count.2week", "RAI.2week")
+names(rai.outputs.hex[[2]]) <- c("StudySite", "Operation.6week", "CommName", "Count.6week", "RAI.6week")
+names(rai.outputs.hex[[3]]) <- c("StudySite", "Operation.10week", "CommName", "Count.10week", "RAI.10week")
+
+names(rai.outputs.total[[1]]) <- c("CommName", "Count.2week", "Operation.2week", "RAI.2week")
+names(rai.outputs.total[[2]]) <- c("CommName", "Count.6week", "Operation.6week", "RAI.6week")
+names(rai.outputs.total[[3]]) <- c("CommName", "Count.10week", "Operation.10week", "RAI.10week")
+
+# combine all three RAI tables together
+rai.hex.all <- join(rai.outputs.hex[[1]], rai.outputs.hex[[2]]) %>% join(rai.outputs.hex[[3]])
+rai.total.all <- join(rai.outputs.total[[1]], rai.outputs.total[[2]]) %>% join(rai.outputs.total[[3]])
+```
+
+```{r combine aerial and RAI, echo = F, message = F, warning = F}
+# combine the aerial counts and RAI tables
+aerial.rai.hex <- left_join(rai.hex.all, aerial.by.hex)
+aerial.rai.total <- left_join(rai.total.all, aerial.total)
+
+# replace aerial count NAs with 0s for hexes where species were not seen
+aerial.rai.hex$aerial.individuals[is.na(aerial.rai.hex$aerial.individuals)] <- 0
+aerial.rai.hex$aerial.groups[is.na(aerial.rai.hex$aerial.groups)] <- 0
+aerial.rai.total$aerial.individuals[is.na(aerial.rai.total$aerial.individuals)] <- 0
+aerial.rai.total$aerial.groups[is.na(aerial.rai.total$aerial.groups)] <- 0
+
+# change species back to a factor
+aerial.rai.hex$CommName <- as.factor(aerial.rai.hex$CommName)
+
+# calculate ratio bewteen RAI and aerial
+aerial.rai.hex$ratio.2week <- aerial.rai.hex$aerial.individuals / aerial.rai.hex$RAI.2week
+aerial.rai.hex$ratio.6week <- aerial.rai.hex$aerial.individuals / aerial.rai.hex$RAI.6week
+aerial.rai.hex$ratio.10week <- aerial.rai.hex$aerial.individuals / aerial.rai.hex$RAI.10week
+
+aerial.rai.total$ratio.2week <- aerial.rai.total$aerial.individuals / aerial.rai.total$RAI.2week
+aerial.rai.total$ratio.6week <- aerial.rai.total$aerial.individuals / aerial.rai.total$RAI.6week
+aerial.rai.total$ratio.10week <- aerial.rai.total$aerial.individuals / aerial.rai.total$RAI.10week
+
+
+# bring in species traits
+species <- read.csv(here::here('data', 'species-metadata.csv'))
+aerial.rai.hex <- join(aerial.rai.hex, species)
+aerial.rai.total <- join(aerial.rai.total, species)
+
+# bring in camera trap metadata
+cam.metadata <- read.csv(here::here('data','cam_metadata_norm_031519.csv'))
+
+# join with camera data
+aerial.rai.hex <- left_join(aerial.rai.hex, cam.metadata)
+
+```
+
+## Detections within each grid cell with aerial vs. camera surveys
+
+First, I looked at whether or not each species was detected in each of the 60 grid cells in the aerial and/or camera trap records. Note that this list only includes species detected in the aerial survey. There were a number of species that were not counted in the aerial survey but which were present in the camera traps (including all of the carnivore species).
+
+```{r detection or not, echo = F}
+# create row for whether or not a species was detected in that grid in camera vs aerial
+# fix ratios when species are absent in one or the other (to avoid 0s and infinities) - while we are at it
+for (i in 1:nrow(aerial.rai.hex)) {
+  if (aerial.rai.hex$aerial.individuals[[i]] == 0) {
+    aerial.rai.hex$aerial.detect[[i]] <- "NAer"
+    aerial.rai.hex$ratio.2week[[i]] <- NA
+    aerial.rai.hex$ratio.6week[[i]] <- NA
+    aerial.rai.hex$ratio.10week[[i]] <- NA
+  } else {
+    aerial.rai.hex$aerial.detect[[i]] <- "YAer"
+  }
+  if (aerial.rai.hex$Count.2week[[i]] == 0) {
+    aerial.rai.hex$cam.detect.2week[[i]] <- "NCam"
+    aerial.rai.hex$ratio.2week[[i]] <- NA
+  } else {
+    aerial.rai.hex$cam.detect.2week[[i]] <- "YCam"
+  }
+  if (aerial.rai.hex$Count.6week[[i]] == 0) {
+    aerial.rai.hex$cam.detect.6week[[i]] <- "NCam"
+    aerial.rai.hex$ratio.6week[[i]] <- NA
+  } else {
+    aerial.rai.hex$cam.detect.6week[[i]] <- "YCam"
+  }  
+  if (aerial.rai.hex$Count.10week[[i]] == 0) {
+    aerial.rai.hex$cam.detect.10week[[i]] <- "NCam"
+    aerial.rai.hex$ratio.10week[[i]] <- NA
+  } else {
+    aerial.rai.hex$cam.detect.10week[[i]] <- "YCam"
+  }  
+}
+
+# create new columns to look at detection concordance in each grid cell
+for (i in 1:nrow(aerial.rai.hex)) {
+  aerial.rai.hex$aerial.cam2.detect[[i]] <- paste(aerial.rai.hex$aerial.detect[[i]], aerial.rai.hex$cam.detect.2week[[i]], sep = "_")
+  aerial.rai.hex$aerial.cam6.detect[[i]] <- paste(aerial.rai.hex$aerial.detect[[i]], aerial.rai.hex$cam.detect.6week[[i]], sep = "_")
+  aerial.rai.hex$aerial.cam10.detect[[i]] <- paste(aerial.rai.hex$aerial.detect[[i]], aerial.rai.hex$cam.detect.10week[[i]], sep = "_")
+}
+
+# summarize counts
+detection.comparison <- aerial.rai.hex %>%
+  dplyr::group_by(CommName, aerial.cam2.detect, aerial.cam6.detect, aerial.cam10.detect) %>%
+  dplyr::summarise(n = n())
+```
+
+These figures indicate the number of grid cells in which the species was detected in both aerial and camera surveys (YAer_Y_Cam), in neither survey (NAer_N_Cam), ONLY camera trap (NAer_YCam), and ONLY aerial (YAer_NCam). The top plot is based on the 2-week camera survey, and the bottom on the 10-week survey. As would be expected, the detections of species increase over a longer survey period.
+
+```{r detection figures, echo = F, warning = F}
+# plot detection vs non-detection for camera and aerial
+ggplot(detection.comparison, aes(aerial.cam2.detect, n, fill=aerial.cam2.detect)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~CommName, scales = "free_y") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(fill="Detected") +
+  ylab("Number of Grid Cells") +
+  ggtitle("Detections During Aerial Count vs 2-week Camera Survey")
+ggsave(here::here('figures', 'presence-aerial-vs-2weekcamera.pdf'))
+
+ggplot(detection.comparison, aes(aerial.cam6.detect, n, fill=aerial.cam6.detect)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~CommName, scales = "free_y")+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(fill="Detected")+
+  ylab("Number of Grid Cells") +
+  ggtitle("Detections During Aerial Count vs 6-week Camera Survey")
+ggsave(here::here('figures', 'presence-aerial-vs-6weekcamera.pdf'))
+
+ggplot(detection.comparison, aes(aerial.cam10.detect, n, fill=aerial.cam10.detect)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~CommName, scales = "free_y")+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(fill="Detected")+
+  ylab("Number of Grid Cells") +
+  ggtitle("Detections During Aerial Count vs 10-week Camera Survey")
+ggsave(here::here('figures', 'presence-aerial-vs-10weekcamera.pdf'))
+```
+
+Some observations based on the 10-week period:
+
+Species that are more often detected on aerial surveys but missed on camera traps include:
+
+  * Reedbuck
+  * Buffalo
+  * Oribi
+  * Wildebeest
+  * Hartebeest
+  * Impala
+
+Some traits shared by many of these species include their medium/large body size, group formation, and preference for open habitat. These traits may make them more likely to be detected in the aerial survey.
+
+Species that are more often detected on camera traps but missed on aerial surveys include:
+
+  * Baboon
+  * Bushbuck
+  * Bushpig
+  * Common duiker
+  * Red duiker
+  * Kudu
+  * Nyala
+  * Elephant 
+  
+These species tend to be more solitary and nocturnal, with smaller bodies, and found in more densely-wooded areas. As a result, they may be missed during the aerial survey.
+
+Note that the observed elephant pattern is likely because they are highly mobile and are counted across multiple camera grid cells in the 10-week period.
+
+Waterbuck and warthog are ubiquitous and nearly universally-detected (though as discussed below, many more warthogs are picked up in the camera traps than aerial survey).
+
+## Comparing relative number of aerial and camera detections within grid cells
+
+Here is the correlation between the aerial count (number of individuals) and camera trap RAI, where each point represents one of the 60 grid cells. These plots are on a log scale for easier interpretation. This plot is shown for the 2-week window that occurred only during the aerial count, but the patterns look similar for the 6- and 10-week periods also. 
+
+```{r correlation, echo = F, warning = F}
+# plot correlation between aerial and RAI in each grid cell, by species
+
+# 2-week count
+ggplot(aerial.rai.hex, aes(x = log(aerial.individuals), y = log(RAI.2week))) + 
+  geom_point() +
+  xlab("Aerial Count") +
+  ylab("Camera Trap RAI (2 weeks)") +
+  facet_wrap(~CommName, scales = "free") +
+  geom_smooth(method = lm, se = T) 
+ggsave(here::here('figures', 'countindiv-aerial-vs-2weekcamera.pdf'))
+
+## 2-week count vs GROUP
+ggplot(aerial.rai.hex, aes(x = log(aerial.groups), y = log(RAI.2week))) + 
+  geom_point() +
+  xlab("Aerial Count (groups)") +
+  ylab("Camera Trap RAI (2 weeks)") +
+  facet_wrap(~CommName, scales = "free") +
+  geom_smooth(method = lm, se = T) 
+ggsave(here::here('figures', 'countgroup-aerial-vs-2weekcamera.pdf'))
+
+# 6-week count
+ggplot(aerial.rai.hex, aes(x = log(aerial.individuals), y = log(RAI.6week))) + 
+  geom_point() +
+  xlab("Aerial Count") +
+  ylab("Camera Trap RAI (6 weeks)") +
+  facet_wrap(~CommName, scales = "free") +
+  geom_smooth(method = lm, se = T) 
+ggsave(here::here('figures', 'countindiv-aerial-vs-2weekcamera.pdf'))
+
+## 6-week count vs GROUP
+ggplot(aerial.rai.hex, aes(x = log(aerial.groups), y = log(RAI.6week))) + 
+  geom_point() +
+  xlab("Aerial Count (groups)") +
+  ylab("Camera Trap RAI (6 weeks)") +
+  facet_wrap(~CommName, scales = "free") +
+  geom_smooth(method = lm, se = T) 
+ggsave(here::here('figures', 'countgroup-aerial-vs-6weekcamera.pdf'))
+
+# 10-week count
+ggplot(aerial.rai.hex, aes(x = log(aerial.individuals), y = log(RAI.10week))) + 
+  geom_point() +
+  xlab("Aerial Count") +
+  ylab("Camera Trap RAI (10 weeks)") +
+  facet_wrap(~CommName, scales = "free") +
+  geom_smooth(method = lm, se = T) 
+ggsave(here::here('figures', 'countindiv-aerial-vs-10weekcamera.pdf'))
+
+## 10-week count vs GROUP
+ggplot(aerial.rai.hex, aes(x = log(aerial.groups), y = log(RAI.10week))) + 
+  geom_point() +
+  xlab("Aerial Count (groups)") +
+  ylab("Camera Trap RAI (10 weeks)") +
+  facet_wrap(~CommName, scales = "free") +
+  geom_smooth(method = lm, se = T) 
+ggsave(here::here('figures', 'countgroup-aerial-vs-10weekcamera.pdf'))
+```
+
+You see that there is generally a positive relationship between detections on the aerial count and in the camera trap, though not a very clean relationship. It appears stronger for some species (waterbuck, warthog, impala) and weaker for others (nyala, bushbuck, reedbuck).
+
+## Comparing aerial and camera detections for different species
+
+Then, I looked at overall correlation between aerial survey count and camera trap detections across the entire study area (all grid cells combined). I was interested in seeing how the ratio between the two counts varied among species. The size of the point corresponds to the size of the animal.
+
+```{r plots, echo = F, message = F, warning = F}
+# remove baboon from the all-species (since they were only counted as groups, not individuals, in aerial count)
+aerial.rai.total.nobaboon <- subset(aerial.rai.total, CommName != "Baboon")
+
+# species - RAI vs aerial (log scale)
+ggplot(aerial.rai.total, aes(x = log(aerial.individuals), y = log(RAI.2week), size = log(Weight))) + 
+  geom_point() +
+  xlab("Aerial Count") +
+  ylab("Camera Trap RAI (2 weeks)") +
+  geom_text(label=aerial.rai.total$CommName, hjust=1, vjust=1.5) +
+  geom_smooth(method = lm, se = F) +
+  theme(legend.position = "none")
+ggsave(here::here('figures', 'total-aerial-vs-2weekcamera.pdf'))
+
+ggplot(aerial.rai.total, aes(x = log(aerial.individuals), y = log(RAI.6week), size = log(Weight))) +
+  geom_point() + 
+  xlab("Aerial Count") +
+  ylab("Camera Trap RAI (6 weeks)") +
+  geom_text(label=aerial.rai.total$CommName) +
+  geom_smooth(method = lm, se = F)+
+  theme(legend.title = element_blank())
+ggsave(here::here('figures', 'total-aerial-vs-6weekcamera.pdf'))
+
+ggplot(aerial.rai.total, aes(x = log(aerial.individuals), y = log(RAI.10week), size = log(Weight))) +
+  geom_point() + 
+  xlab("Aerial Count") +
+  ylab("Camera Trap RAI (10 weeks)") +
+  geom_text(label=aerial.rai.total$CommName) +
+  geom_smooth(method = lm, se = F)+
+  theme(legend.title = element_blank())
+ggsave(here::here('figures', 'total-aerial-vs-10weekcamera.pdf'))
+
+```
+
+It appears that larger-bodied animals are relatively more detected in the aerial counts, as compared to the camera traps. Another way of looking at the same thing: here is the ratio of aerial count to RAI, as a function of body weight. A higher ratio means that the species was relatively more detected on the aerial counts. 
+
+```{r aerial rai weight, echo = F}
+# looks like bigger species are more detectable on aerial count
+ggplot(aerial.rai.total, aes(x = log(Weight), y = ratio.2week)) +
+  geom_point() + 
+  xlab("Weight (log)") +
+  ylab("Ratio of Aerial to Camera Detections") +
+  geom_smooth(method = lm) +
+  geom_text(label=aerial.rai.total$CommName)
+ggsave(here::here('figures', 'ratio2week-vs-bodysize.pdf'))
+
+ggplot(aerial.rai.total, aes(x = log(Weight), y = ratio.6week)) +
+  geom_point() + 
+  xlab("Weight (log)") +
+  ylab("Ratio of Aerial to Camera Detections") +
+  geom_smooth(method = lm) +
+  geom_text(label=aerial.rai.total$CommName)
+ggsave(here::here('figures', 'ratio6week-vs-bodysize.pdf'))
+
+ggplot(aerial.rai.total, aes(x = log(Weight), y = ratio.10week)) +
+  geom_point() + 
+  xlab("Weight (log)") +
+  ylab("Ratio of Aerial to Camera Detections") +
+  geom_smooth(method = lm) +
+  geom_text(label=aerial.rai.total$CommName)
+ggsave(here::here('figures', 'ratio10week-vs-bodysize.pdf'))
+```
+
+So species like buffalo, sable, reedbuck, waterbuck, elephant, impala are picked up relatively more on the aerial surveys. Common duiker, red duiker, baboon, bushpig, bushbuck, warthog are picked up relatively more on the camera traps. This pattern of relative detection rates echoes what was seen above with the presence/absence comparison.
+
+## Detection and tree cover
+
+I was curious to know if the tree cover in a given grid cell changed the relative patterns of detection based on the aerial count vs. camera traps, with the hypothesis that camera traps would pick up more animals in wooded areas where visibility from helicopter may be lower. 
+
+I only just began these analyses; ideally, I would want to calculate average tree cover within the entire grid cell, but this analysis was very computationally-intensive given the high-resolution rasters, so for now I just took the tree cover value at the camera location in the center of the grid cell.
+
+Another important caveat: this only includes grid cells in which the species was detected in both aerial and camera surveys (since ratio would be 0 or infinity, which was messing up the regression). So interpret with caution.
+
+And given all of those caveats, the initial graphs don't show much. It seems that tree cover has little bearing on the relationship between aerial vs. camera detections, but again, this is preliminary.
+
+```{r plots more, echo = F, warning = F}
+# tree cover (Hansen) and detection by species
+ggplot(aerial.rai.hex, aes(x = tree.hansen, y = ratio.2week)) +
+  geom_point() +
+  facet_wrap(~CommName, scales = "free_y") +
+  xlab("Tree Cover at Center of Grid Cell") +
+  ylab("Ratio of Aerial to Camera Detections") 
+ggsave(here::here('figures', 'ratio2week-vs-treecover.pdf'))
+
+ggplot(aerial.rai.hex, aes(x = tree.hansen, y = ratio.6week)) +
+  geom_point() +
+  facet_wrap(~CommName, scales = "free_y") +
+  xlab("Tree Cover at Center of Grid Cell") +
+  ylab("Ratio of Aerial to Camera Detections") 
+ggsave(here::here('figures', 'ratio6week-vs-treecover.pdf'))
+
+ggplot(aerial.rai.hex, aes(x = tree.hansen, y = ratio.10week)) +
+  geom_point() +
+  facet_wrap(~CommName, scales = "free_y") +
+  xlab("Tree Cover at Center of Grid Cell") +
+  ylab("Ratio of Aerial to Camera Detections") 
+ggsave(here::here('figures', 'ratio10week-vs-treecover.pdf'))
+
+# tree cover (category) and detection by species
+#ggplot(aerial.rai.hex, aes(x = habitat.type, y = ratio.2week, fill = habitat.type)) +
+#  geom_boxplot() +
+#  facet_wrap(~CommName, scales = "free_y")
+#ggplot(aerial.rai.hex, aes(x = tree.hansen, y = ratio.6weekfill = habitat.type)) +
+#  geom_boxplot() +
+#  facet_wrap(~CommName, scales = "free_y")
+#ggplot(aerial.rai.hex, aes(x = tree.hansen, y = ratio.10weekfill = habitat.type)) +
+#  geom_boxplot() +
+#  facet_wrap(~CommName, scales = "free_y")
+
+
+
+
+# run regressions to look at factors influencing that ratio (tree cover, species weight)
+
+
+
+# was going to see if/how tree cover in a hex influenced the relationship between aerial and camera counts, but was taking too long to run
+
+# calculate tree cover in each hexagon
+#tree.cover <- raster('GIS/Rasters for stacking/Masked rasters/tree.hansen.crop.res.mask.tif')
+
+# Extract raster values to list object
+#tree.cover.vals <- raster::extract(tree.cover, hexes)
+
+# Use list apply to calculate mean for each polygon
+#tree.cover.mean <- lapply(tree.cover.vals, FUN=mean)
+
+# Join mean values to polygon data
+#tree.cover.vals@data <- data.frame(tree.cover.vals@data, tree.cover=tree.cover.mean)
+
+```
+
