@@ -1,0 +1,72 @@
+---
+title: "Exploration of Tinley data"
+author: "Kaitlyn Gaynor"
+date: "1/23/20"
+output: md_document
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup}
+library(here)
+library(tidyverse)
+library(sf)
+library(mapview)
+
+aerial_data <- read_csv(here::here("data", "aerial-count", "stalmans-plosone-data.csv"))
+
+# see unique count years
+unique(aerial_data$Count)
+```
+
+Have a look at the pre-war (Tinley) data.
+```{r tinley explore}
+# subset to Tinley (filter to counts before 1980)
+aerial_data_tinley <- aerial_data %>%
+  filter(Count < 1980)
+
+# create sf object
+tinley_sf <- st_as_sf(aerial_data_tinley, coords = c("Longitude", "Latitude"))
+
+# plot just to make sure it's working
+mapview(tinley_sf)
+
+# see what species we are looking at
+tinley_summary <- aerial_data_tinley %>%
+  group_by(Species, Count) %>%
+  summarise(Total = sum(Number)) %>%
+  pivot_wider(names_from = Count, values_from = Total)
+
+tinley_summary
+
+unique(tinley_summary$Species)
+```
+
+It looks like Tinley just counted wildebeest, buffalo, eland, elephant, hartebeest, stable, waterbuck, and zebra. I also went back to the raw maps that Marc sent me, and the only other species that are included in there (but not in the manuscript) are impala.
+
+But I think that more was counted immediately post-war. Let's see about those counts. Looking at 1994, 1997, 2000, 2001, and 2002. These five surveys were bunched together in the Stalmans et al manuscript, as densities were similarly low throughout, and then went up in 2004 and beyond.
+
+```{r postwar explore}
+# filter to counts before 1980
+aerial_data_postwar <- aerial_data %>%
+  filter(Count < 2003 & Count > 1990)
+
+# create sf object
+postwar_sf <- st_as_sf(aerial_data_postwar, coords = c("Longitude", "Latitude"))
+
+# plot just to make sure it's working
+mapview(postwar_sf)
+
+# see what species we are looking at
+postwar_summary <- aerial_data_postwar %>%
+  group_by(Species, Count) %>%
+  summarise(Total = sum(Number)) %>%
+  pivot_wider(names_from = Count, values_from = Total)
+
+postwar_summary
+
+unique(postwar_summary$Species)
+```
+
+Many more species included here: 18 in total. Same as the Tinley, plus bushbuck, bushpig, reedbuck, common duiker, hippo, impala, kudu, nyala, oribi, warthog.
+
