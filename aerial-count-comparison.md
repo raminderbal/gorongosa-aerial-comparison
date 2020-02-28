@@ -3,7 +3,7 @@ The general approach
 
 I was interested in comparing aerial count detections to camera trap
 detections during the same period (late dry season of 2016). I was
-curious to see which species were more commonly detected in one vs. the
+curious to see which species were more commonly detected in one vs. the
 other, and how the ratio of aerial to camera trap detections varied
 across habitats and species.
 
@@ -35,7 +35,7 @@ for three different time periods:
 -   the exact period of the survey (2 weeks total)
 -   two weeks before and after the count (6 weeks total)
 -   four weeks before and after the count (10 weeks total). The longer
-    the camera trap survey period, the more data, but I didn't want it
+    the camera trap survey period, the more data, but I didn’t want it
     to be so long that it was no longer representative of animal
     distributions during the count.
 
@@ -44,7 +44,7 @@ For each of these three time periods, I calculated RAI for each species:
 -   within each grid cell
 -   within the entire study area
 
-Detections within each grid cell with aerial vs. camera surveys
+Detections within each grid cell with aerial vs. camera surveys
 ---------------------------------------------------------------
 
 First, I looked at whether or not each species was detected in each of
@@ -191,7 +191,7 @@ Detection and tree cover
 ------------------------
 
 I was curious to know if the tree cover in a given grid cell changed the
-relative patterns of detection based on the aerial count vs. camera
+relative patterns of detection based on the aerial count vs. camera
 traps, with the hypothesis that camera traps would pick up more animals
 in wooded areas where visibility from helicopter may be lower.
 
@@ -206,9 +206,9 @@ species was detected in both aerial and camera surveys (since ratio
 would be 0 or infinity, which was messing up the regression). So
 interpret with caution.
 
-And given all of those caveats, the initial graphs don't show much. It
+And given all of those caveats, the initial graphs don’t show much. It
 seems that tree cover has little bearing on the relationship between
-aerial vs. camera detections, but again, this is preliminary.
+aerial vs. camera detections, but again, this is preliminary.
 
 ![](aerial-count-comparison_files/figure-markdown_strict/plots%20more-1.png)
 

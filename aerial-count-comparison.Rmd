@@ -2,9 +2,7 @@
 title: "Aerial count and camera trap comparison"
 author: "Kaitlyn Gaynor"
 date: "9/5/19"
-output: 
-  html_document:
-    theme: cosmo
+output: html_document
 editor_options:
   chunk_output_type: console
 ---
