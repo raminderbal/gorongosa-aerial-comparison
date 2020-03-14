@@ -133,15 +133,14 @@ for(i in 1:nrow(aerial.total)) {
 # remove species with NA for SppCode (birds, crocodiles)
 aerial.by.hex <- aerial.by.hex[complete.cases(aerial.by.hex),]
 aerial.total <- aerial.total[complete.cases(aerial.total),]
+
+# A note for later... that renaming could have been done a lot easier, see:
+# records <- vroom("recordtable_allrecordscleaned_speciesmetadata.csv", delim = ",") %>%
+#   mutate(Species = fct_recode(Species, "Zorilla" = "Pangolin")) %>%
+#   mutate(Species = fct_recode(Species, "Suni" = "Lion")) %>% # can't figure out how to recode all in one line; # strangely, it worked when I reloaded the app but not when I loaded from scratch. ah well, this works
+#   mutate(Species = fct_recode(Species, "Bird" = "Elephant")) 
 ```
 
-A note for later... that renaming could have been done a lot easier, see:
-```
-records <- vroom("recordtable_allrecordscleaned_speciesmetadata.csv", delim = ",") %>%
-  mutate(Species = fct_recode(Species, "Zorilla" = "Pangolin")) %>%
-  mutate(Species = fct_recode(Species, "Suni" = "Lion")) %>% # can't figure out how to recode all in one line; strangely, it worked when I reloaded the app but not when I loaded from scratch. ah well, this works
-  mutate(Species = fct_recode(Species, "Bird" = "Elephant")) 
-  ```
 
 I then calculated the Relative Activity Index, a simple measure of camera trap detections per night. Here, I considered records to be independent if they were >10 minutes from a record of the same species at that location. I did not record the number of individuals in each group, so in this case, we are looking at groups—an imperfect comparison with individuals from the aerial count, but the best that we can do so far. Meredith is currently working on determining the number of individuals in each record.
 
