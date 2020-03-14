@@ -135,6 +135,14 @@ aerial.by.hex <- aerial.by.hex[complete.cases(aerial.by.hex),]
 aerial.total <- aerial.total[complete.cases(aerial.total),]
 ```
 
+A note for later... that renaming could have been done a lot easier, see:
+```
+records <- vroom("recordtable_allrecordscleaned_speciesmetadata.csv", delim = ",") %>%
+  mutate(Species = fct_recode(Species, "Zorilla" = "Pangolin")) %>%
+  mutate(Species = fct_recode(Species, "Suni" = "Lion")) %>% # can't figure out how to recode all in one line; strangely, it worked when I reloaded the app but not when I loaded from scratch. ah well, this works
+  mutate(Species = fct_recode(Species, "Bird" = "Elephant")) 
+  ```
+
 I then calculated the Relative Activity Index, a simple measure of camera trap detections per night. Here, I considered records to be independent if they were >10 minutes from a record of the same species at that location. I did not record the number of individuals in each group, so in this case, we are looking at groups—an imperfect comparison with individuals from the aerial count, but the best that we can do so far. Meredith is currently working on determining the number of individuals in each record.
 
 The aerial survey took place from October 18-31, 2016. I calculated RAI for three different time periods: 
@@ -374,7 +382,7 @@ ggplot(detection.comparison, aes(aerial.cam2.detect, n, fill=aerial.cam2.detect)
   labs(fill="Detected") +
   ylab("Number of Grid Cells") +
   ggtitle("Detections During Aerial Count vs 2-week Camera Survey")
-ggsave(here::here('figures', 'presence-aerial-vs-2weekcamera.pdf'))
+##ggsave(here::here('figures', 'presence-aerial-vs-2weekcamera.pdf'))
 
 ggplot(detection.comparison, aes(aerial.cam6.detect, n, fill=aerial.cam6.detect)) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -385,7 +393,7 @@ ggplot(detection.comparison, aes(aerial.cam6.detect, n, fill=aerial.cam6.detect)
   labs(fill="Detected")+
   ylab("Number of Grid Cells") +
   ggtitle("Detections During Aerial Count vs 6-week Camera Survey")
-ggsave(here::here('figures', 'presence-aerial-vs-6weekcamera.pdf'))
+#ggsave(here::here('figures', 'presence-aerial-vs-6weekcamera.pdf'))
 
 ggplot(detection.comparison, aes(aerial.cam10.detect, n, fill=aerial.cam10.detect)) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -396,7 +404,7 @@ ggplot(detection.comparison, aes(aerial.cam10.detect, n, fill=aerial.cam10.detec
   labs(fill="Detected")+
   ylab("Number of Grid Cells") +
   ggtitle("Detections During Aerial Count vs 10-week Camera Survey")
-ggsave(here::here('figures', 'presence-aerial-vs-10weekcamera.pdf'))
+#ggsave(here::here('figures', 'presence-aerial-vs-10weekcamera.pdf'))
 ```
 
 Some observations based on the 10-week period:
@@ -443,7 +451,7 @@ ggplot(aerial.rai.hex, aes(x = log(aerial.individuals), y = log(RAI.2week))) +
   ylab("Camera Trap RAI (2 weeks)") +
   facet_wrap(~CommName, scales = "free") +
   geom_smooth(method = lm, se = T) 
-ggsave(here::here('figures', 'countindiv-aerial-vs-2weekcamera.pdf'))
+#ggsave(here::here('figures', 'countindiv-aerial-vs-2weekcamera.pdf'))
 
 ## 2-week count vs GROUP
 ggplot(aerial.rai.hex, aes(x = log(aerial.groups), y = log(RAI.2week))) + 
@@ -452,7 +460,7 @@ ggplot(aerial.rai.hex, aes(x = log(aerial.groups), y = log(RAI.2week))) +
   ylab("Camera Trap RAI (2 weeks)") +
   facet_wrap(~CommName, scales = "free") +
   geom_smooth(method = lm, se = T) 
-ggsave(here::here('figures', 'countgroup-aerial-vs-2weekcamera.pdf'))
+#ggsave(here::here('figures', 'countgroup-aerial-vs-2weekcamera.pdf'))
 
 # 6-week count
 ggplot(aerial.rai.hex, aes(x = log(aerial.individuals), y = log(RAI.6week))) + 
@@ -461,7 +469,7 @@ ggplot(aerial.rai.hex, aes(x = log(aerial.individuals), y = log(RAI.6week))) +
   ylab("Camera Trap RAI (6 weeks)") +
   facet_wrap(~CommName, scales = "free") +
   geom_smooth(method = lm, se = T) 
-ggsave(here::here('figures', 'countindiv-aerial-vs-2weekcamera.pdf'))
+#ggsave(here::here('figures', 'countindiv-aerial-vs-2weekcamera.pdf'))
 
 ## 6-week count vs GROUP
 ggplot(aerial.rai.hex, aes(x = log(aerial.groups), y = log(RAI.6week))) + 
@@ -470,7 +478,7 @@ ggplot(aerial.rai.hex, aes(x = log(aerial.groups), y = log(RAI.6week))) +
   ylab("Camera Trap RAI (6 weeks)") +
   facet_wrap(~CommName, scales = "free") +
   geom_smooth(method = lm, se = T) 
-ggsave(here::here('figures', 'countgroup-aerial-vs-6weekcamera.pdf'))
+#ggsave(here::here('figures', 'countgroup-aerial-vs-6weekcamera.pdf'))
 
 # 10-week count
 ggplot(aerial.rai.hex, aes(x = log(aerial.individuals), y = log(RAI.10week))) + 
@@ -479,7 +487,7 @@ ggplot(aerial.rai.hex, aes(x = log(aerial.individuals), y = log(RAI.10week))) +
   ylab("Camera Trap RAI (10 weeks)") +
   facet_wrap(~CommName, scales = "free") +
   geom_smooth(method = lm, se = T) 
-ggsave(here::here('figures', 'countindiv-aerial-vs-10weekcamera.pdf'))
+#ggsave(here::here('figures', 'countindiv-aerial-vs-10weekcamera.pdf'))
 
 ## 10-week count vs GROUP
 ggplot(aerial.rai.hex, aes(x = log(aerial.groups), y = log(RAI.10week))) + 
@@ -488,7 +496,7 @@ ggplot(aerial.rai.hex, aes(x = log(aerial.groups), y = log(RAI.10week))) +
   ylab("Camera Trap RAI (10 weeks)") +
   facet_wrap(~CommName, scales = "free") +
   geom_smooth(method = lm, se = T) 
-ggsave(here::here('figures', 'countgroup-aerial-vs-10weekcamera.pdf'))
+#ggsave(here::here('figures', 'countgroup-aerial-vs-10weekcamera.pdf'))
 ```
 
 You see that there is generally a positive relationship between detections on the aerial count and in the camera trap, though not a very clean relationship. It appears stronger for some species (waterbuck, warthog, impala) and weaker for others (nyala, bushbuck, reedbuck).
@@ -509,7 +517,7 @@ ggplot(aerial.rai.total, aes(x = log(aerial.individuals), y = log(RAI.2week), si
   geom_text(label=aerial.rai.total$CommName, hjust=1, vjust=1.5) +
   geom_smooth(method = lm, se = F) +
   theme(legend.position = "none")
-ggsave(here::here('figures', 'total-aerial-vs-2weekcamera.pdf'))
+#ggsave(here::here('figures', 'total-aerial-vs-2weekcamera.pdf'))
 
 ggplot(aerial.rai.total, aes(x = log(aerial.individuals), y = log(RAI.6week), size = log(Weight))) +
   geom_point() + 
@@ -518,7 +526,7 @@ ggplot(aerial.rai.total, aes(x = log(aerial.individuals), y = log(RAI.6week), si
   geom_text(label=aerial.rai.total$CommName) +
   geom_smooth(method = lm, se = F)+
   theme(legend.title = element_blank())
-ggsave(here::here('figures', 'total-aerial-vs-6weekcamera.pdf'))
+#ggsave(here::here('figures', 'total-aerial-vs-6weekcamera.pdf'))
 
 ggplot(aerial.rai.total, aes(x = log(aerial.individuals), y = log(RAI.10week), size = log(Weight))) +
   geom_point() + 
@@ -527,7 +535,7 @@ ggplot(aerial.rai.total, aes(x = log(aerial.individuals), y = log(RAI.10week), s
   geom_text(label=aerial.rai.total$CommName) +
   geom_smooth(method = lm, se = F)+
   theme(legend.title = element_blank())
-ggsave(here::here('figures', 'total-aerial-vs-10weekcamera.pdf'))
+#ggsave(here::here('figures', 'total-aerial-vs-10weekcamera.pdf'))
 
 ```
 
@@ -541,7 +549,7 @@ ggplot(aerial.rai.total, aes(x = log(Weight), y = ratio.2week)) +
   ylab("Ratio of Aerial to Camera Detections") +
   geom_smooth(method = lm) +
   geom_text(label=aerial.rai.total$CommName)
-ggsave(here::here('figures', 'ratio2week-vs-bodysize.pdf'))
+#ggsave(here::here('figures', 'ratio2week-vs-bodysize.pdf'))
 
 ggplot(aerial.rai.total, aes(x = log(Weight), y = ratio.6week)) +
   geom_point() + 
@@ -549,7 +557,7 @@ ggplot(aerial.rai.total, aes(x = log(Weight), y = ratio.6week)) +
   ylab("Ratio of Aerial to Camera Detections") +
   geom_smooth(method = lm) +
   geom_text(label=aerial.rai.total$CommName)
-ggsave(here::here('figures', 'ratio6week-vs-bodysize.pdf'))
+#ggsave(here::here('figures', 'ratio6week-vs-bodysize.pdf'))
 
 ggplot(aerial.rai.total, aes(x = log(Weight), y = ratio.10week)) +
   geom_point() + 
@@ -557,7 +565,7 @@ ggplot(aerial.rai.total, aes(x = log(Weight), y = ratio.10week)) +
   ylab("Ratio of Aerial to Camera Detections") +
   geom_smooth(method = lm) +
   geom_text(label=aerial.rai.total$CommName)
-ggsave(here::here('figures', 'ratio10week-vs-bodysize.pdf'))
+#ggsave(here::here('figures', 'ratio10week-vs-bodysize.pdf'))
 ```
 
 So species like buffalo, sable, reedbuck, waterbuck, elephant, impala are picked up relatively more on the aerial surveys. Common duiker, red duiker, baboon, bushpig, bushbuck, warthog are picked up relatively more on the camera traps. This pattern of relative detection rates echoes what was seen above with the presence/absence comparison.
@@ -579,21 +587,21 @@ ggplot(aerial.rai.hex, aes(x = tree.hansen, y = ratio.2week)) +
   facet_wrap(~CommName, scales = "free_y") +
   xlab("Tree Cover at Center of Grid Cell") +
   ylab("Ratio of Aerial to Camera Detections") 
-ggsave(here::here('figures', 'ratio2week-vs-treecover.pdf'))
+#ggsave(here::here('figures', 'ratio2week-vs-treecover.pdf'))
 
 ggplot(aerial.rai.hex, aes(x = tree.hansen, y = ratio.6week)) +
   geom_point() +
   facet_wrap(~CommName, scales = "free_y") +
   xlab("Tree Cover at Center of Grid Cell") +
   ylab("Ratio of Aerial to Camera Detections") 
-ggsave(here::here('figures', 'ratio6week-vs-treecover.pdf'))
+#ggsave(here::here('figures', 'ratio6week-vs-treecover.pdf'))
 
 ggplot(aerial.rai.hex, aes(x = tree.hansen, y = ratio.10week)) +
   geom_point() +
   facet_wrap(~CommName, scales = "free_y") +
   xlab("Tree Cover at Center of Grid Cell") +
   ylab("Ratio of Aerial to Camera Detections") 
-ggsave(here::here('figures', 'ratio10week-vs-treecover.pdf'))
+#ggsave(here::here('figures', 'ratio10week-vs-treecover.pdf'))
 
 # tree cover (category) and detection by species
 #ggplot(aerial.rai.hex, aes(x = habitat.type, y = ratio.2week, fill = habitat.type)) +
