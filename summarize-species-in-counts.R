@@ -28,3 +28,13 @@ aerial_summary
 
 write.csv(aerial_summary, "data/species-counts-by-year.csv")
 
+
+
+# Only within hex grid cells ----------------------------------------------
+
+hex_summary <- read_csv(here::here("data", "hex-summary.csv")) %>% 
+  group_by(Count, Species) %>% 
+  arrange() %>% 
+  summarise(Number = n()) %>% 
+  pivot_wider(names_from = Count, values_from = Number)
+
