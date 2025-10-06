@@ -10,15 +10,20 @@ library(rgdal)
 aerial_data <- read_csv(here::here("data", "aerial-count", "stalmans-plosone-data.csv")) 
 
 # convert to sf object
+# simple features are the standard for representing spatial vector data
+#crs is the coordinate reference system (4326 is the ID number for WGS 84)
+# c(x,y) is combine 
 aerial_data_sf <- st_as_sf(aerial_data, 
                            coords = c("Longitude", "Latitude"),
                            crs = 4326)
 
 # bring in camera hexes
+#st_read is from the simple features package. It is used to read spatial data.
 hexes <- st_read(here::here('data', 'camera-trap'), 'CameraGridHexes') %>% 
   st_transform(crs = 4326)
 
 # map the points onto the hexagonal grid cells
+#st_join attaches attributes from hex grid to aerial survey data. Each point in the aerial survey will now be in the hexagon it belongs in
 aerial_data_hexes <- st_join(aerial_data_sf, hexes)
 
 # see what species we are looking at
@@ -32,6 +37,7 @@ hex_summary <- aerial_data_hexes %>%
 head(hex_summary)
 
 # change the Tinley names to match mine
+#fct_recode(factor_column, "NewName" = "OldName")
 hex_summary <- hex_summary %>%
   mutate(Species = fct_recode(Species, "Baboon" = "Baboon troop")) %>%
   mutate(Species = fct_recode(Species, "Wildebeest" = "Blue wildebeest")) %>%
