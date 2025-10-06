@@ -35,11 +35,14 @@ aerial <- readOGR(here::here('data', 'aerial-count'), 'clip2016_gaynor_grid_proj
   spTransform("+proj=utm +south +zone=36 +ellps=WGS84")
   
 # read in camera polygons
+# readOGR is used to import spatial data. It is from rgdal package. It imported the 2016 aerial count as an sp object
 hexes <- readOGR(here::here('data', 'camera-trap'), 'CameraGridHexes') %>% 
-  spTransform("+proj=utm +south +zone=36 +ellps=WGS84")
+  spTransform("+proj=utm +south +zone=36 +ellps=WGS84") # spTransform is changing it from its current coordinate reference system to UTM which uses metres. 
 
+#plot creases the hex grid and points creates the points on top of the hex grid
 plot(hexes)
 points(aerial, pch = 16, cex = 0.5)
+# aerial is the sp object, pch is point shape, cex is the size of the points
 
 # make labels (code borrowed from Matt LOD)
 cam_labs <- as.data.frame(do.call(rbind, lapply(hexes@polygons, function(x) rbind(x@Polygons[[1]]@labpt))))
