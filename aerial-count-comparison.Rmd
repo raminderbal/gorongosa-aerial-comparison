@@ -47,8 +47,14 @@ points(aerial, pch = 16, cex = 0.5)
 # make labels (code borrowed from Matt LOD)
 cam_labs <- as.data.frame(do.call(rbind, lapply(hexes@polygons, function(x) rbind(x@Polygons[[1]]@labpt))))
 cam_labs$lab <- hexes@data$StudySite
+#hexes include where each hexagon is on the map and the information about each hex
+#hexes@polygons is a list of each hexagon shapes (ex. one study site that might be composed of multiple parts)
+# x@Polygons[[1]]@labpt = this extracts the label point
+# do.call(rbind, ...) = combines all the extracted label points (which are small coordinate vectors) into a single matrix with rows = hexagons.
+#cam_labs$lab <- hexes@data$StudySite = adds a third column with the label (the ID of each study site) from the attribute table of the hex grid.
 
 # mask count data to hexagons
+# the [hexes, ] operation keeps only the aerial points that are in the polygons
 aerial.mask <- aerial[hexes,]
 ```
 
