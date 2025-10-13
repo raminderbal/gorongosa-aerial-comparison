@@ -39,7 +39,7 @@ aerial <- readOGR(here::here('data', 'aerial-count'), 'clip2016_gaynor_grid_proj
 hexes <- readOGR(here::here('data', 'camera-trap'), 'CameraGridHexes') %>% 
   spTransform("+proj=utm +south +zone=36 +ellps=WGS84") # spTransform is changing it from its current coordinate reference system to UTM which uses metres. 
 
-#plot creases the hex grid and points creates the points on top of the hex grid
+#plot creates the hex grid and points creates the points on top of the hex grid
 plot(hexes)
 points(aerial, pch = 16, cex = 0.5)
 # aerial is the sp object, pch is point shape, cex is the size of the points
@@ -139,7 +139,7 @@ for(i in 1:nrow(aerial.total)) {
   }  
 }
 
-# remove species with NA for SppCode (birds, crocodiles)
+# remove species with NA for SppCode (species code) (birds, crocodiles)
 aerial.by.hex <- aerial.by.hex[complete.cases(aerial.by.hex),]
 aerial.total <- aerial.total[complete.cases(aerial.total),]
 
@@ -198,6 +198,7 @@ rai.outputs.total <- list()
 # calculate RAI for each period
 for (i in 1:length(Camop)) {
   record.table.subset <- record.table[record.table$Date >= start.date[[i]] & record.table$Date <= end.date[[i]],]
+#This line says to loop through each of the three camera operation data set, the i=1,2,3, corresponding to the dataset
 
   # just take the columns we need (camera and species)
   record.table.subset <- record.table.subset[,2:3]
@@ -223,7 +224,9 @@ for (i in 1:length(Camop)) {
     dplyr::group_by(CommName, StudySite) %>%
     dplyr::summarise(Detections = n()) %>%     # counts number of observations of each species
     spread(key = CommName, value = Detections)  # gets from long to wide format
-  
+
+# when you write "dplr::" you are telliing it what package (in this case, dplyr)to use the function from. Useful if different R packages have functions with the same names
+
   # replace NA values with 0 (no detections)
   records[is.na(records)] <- 0
   
@@ -231,13 +234,16 @@ for (i in 1:length(Camop)) {
   RAI.table <- join(Camop[[i]], records)
   
   # gather data so each species-camera is its own row again
+#ncol = number of columns, tells you have many columns in a data frame
   RAI.table <- RAI.table %>% gather(3:ncol(RAI.table), key = "CommName", value = "Count")
+# This line basically says take all the columns from column 3 onward and reshape them into two new columns called CommName and Count.”
   
   # replace NA with 0 (not sure why they got un-replaced...)
   RAI.table[is.na(RAI.table)] <- 0
   
   # calculate RAI
   RAI.table$RAI <- RAI.table$Count / RAI.table$Operation
+# RAI = Number of detections / Number of camera trap operation days
   
   # set RAI to NA if Operation is 0
   for (j in 1:nrow(RAI.table)) {
