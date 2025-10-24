@@ -35,7 +35,6 @@ aerial <- readOGR(here::here('data', 'aerial-count'), 'clip2016_gaynor_grid_proj
   spTransform("+proj=utm +south +zone=36 +ellps=WGS84")
   
 # read in camera polygons
-# readOGR is used to import spatial data. It is from rgdal package. It imported the 2016 aerial count as an sp object
 hexes <- readOGR(here::here('data', 'camera-trap'), 'CameraGridHexes') %>% 
   spTransform("+proj=utm +south +zone=36 +ellps=WGS84") # spTransform is changing it from its current coordinate reference system to UTM which uses metres. 
 
